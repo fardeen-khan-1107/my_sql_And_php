@@ -2,13 +2,14 @@
 session_start(); // Start the session
 
 if (isset($_POST["login"])) {
-    require_once "database.php";
+    require_once "database.php"; // Include your database connection
 
     $email = $_POST["email"];
     $password = $_POST["password"];
 
     $errors = array();
 
+    // Validate input fields
     if (empty($email) || empty($password)) {
         array_push($errors, "Email and Password are required");
     }
@@ -17,19 +18,31 @@ if (isset($_POST["login"])) {
         array_push($errors, "Invalid email format");
     }
 
-    $sql = "SELECT * FROM users WHERE email = '$email'";
-    $result = mysqli_query($conn, $sql);
-    $user = mysqli_fetch_assoc($result);
+    // Use prepared statement to prevent SQL injection
+    $sql = "SELECT * FROM users WHERE email = ?";
+    $stmt = mysqli_stmt_init($conn);
+    if (mysqli_stmt_prepare($stmt, $sql)) {
+        // Bind parameters to the prepared statement
+        mysqli_stmt_bind_param($stmt, "s", $email);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        
+        $user = mysqli_fetch_assoc($result);
 
-    if ($user && password_verify($password, $user['password'])) {
-        // Set session variable and redirect to index.html
-        $_SESSION['fullname'] = $user['full_name'];  
-        header("Location: index.php");
-        exit();
+        // Verify the password if user is found
+        if ($user && password_verify($password, $user['password'])) {
+            // Set session variable and redirect to index.php
+            $_SESSION['fullname'] = $user['full_name'];  
+            header("Location: index.php");
+            exit();
+        } else {
+            array_push($errors, "Invalid email or password");
+        }
     } else {
-        array_push($errors, "Invalid email or password");
+        array_push($errors, "Error preparing query");
     }
 
+    // Display errors if any
     if (count($errors) > 0) {
         foreach ($errors as $error) {
             echo "<div class='error'>$error</div>";
