@@ -7,6 +7,10 @@ if (isset($_POST["login"])) {
     $email = $_POST["email"];
     $password = $_POST["password"];
 
+    // Predefined admin credentials
+    $admin_email = 'admin@gmail.com';  // You can change this to the email you want for admin
+    $admin_password = '98898816';  // Predefined admin password
+
     $errors = array();
 
     // Validate input fields
@@ -18,28 +22,38 @@ if (isset($_POST["login"])) {
         array_push($errors, "Invalid email format");
     }
 
-    // Use prepared statement to prevent SQL injection
-    $sql = "SELECT * FROM users WHERE email = ?";
-    $stmt = mysqli_stmt_init($conn);
-    if (mysqli_stmt_prepare($stmt, $sql)) {
-        // Bind parameters to the prepared statement
-        mysqli_stmt_bind_param($stmt, "s", $email);
-        mysqli_stmt_execute($stmt);
-        $result = mysqli_stmt_get_result($stmt);
-        
-        $user = mysqli_fetch_assoc($result);
-
-        // Verify the password if user is found
-        if ($user && password_verify($password, $user['password'])) {
-            // Set session variable and redirect to index.php
-            $_SESSION['fullname'] = $user['full_name'];  
-            header("Location: index.php");
-            exit();
-        } else {
-            array_push($errors, "Invalid email or password");
-        }
+    // Check if admin login credentials are correct
+    if ($email === $admin_email && $password === $admin_password) {
+        $_SESSION['role'] = 'admin';  // Set session variable to indicate admin login
+        $_SESSION['username'] = $email;  // Store the email for the session
+        header("Location: view_admin.php");  // Redirect to the products page for admin
+        exit();
     } else {
-        array_push($errors, "Error preparing query");
+        // Use prepared statement to prevent SQL injection for normal user login
+        $sql = "SELECT * FROM users WHERE email = ?";
+        $stmt = mysqli_stmt_init($conn);
+        if (mysqli_stmt_prepare($stmt, $sql)) {
+            // Bind parameters to the prepared statement
+            mysqli_stmt_bind_param($stmt, "s", $email);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+
+            $user = mysqli_fetch_assoc($result);
+
+            // Verify the password if user is found
+            if ($user && password_verify($password, $user['password'])) {
+                // Set session variable and redirect to index.php for normal users
+                $_SESSION['role'] = 'user';  // Set session role as user
+                $_SESSION['username'] = $email;  // Store the email for the session
+                $_SESSION['fullname'] = $user['full_name'];  
+                header("Location: index.php");  // Redirect to homepage
+                exit();
+            } else {
+                array_push($errors, "Invalid email or password");
+            }
+        } else {
+            array_push($errors, "Error preparing query");
+        }
     }
 
     // Display errors if any
